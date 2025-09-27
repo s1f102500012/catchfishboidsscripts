@@ -25,8 +25,8 @@ public class SpawnGoldOnGold : PlayerModifier
 
     static void OnGold(Vector2 _)
     {
-        var bm = Object.FindObjectOfType<BoidManager>();
-        var pl = Object.FindObjectOfType<PlayerController>();
+        var bm = Object.FindFirstObjectByType<BoidManager>();
+        var pl = Object.FindFirstObjectByType<PlayerController>();
         if (!bm || !pl) return;
 
         float eff = 1f - Mathf.Pow(1f - sBaseChance, sStacks);

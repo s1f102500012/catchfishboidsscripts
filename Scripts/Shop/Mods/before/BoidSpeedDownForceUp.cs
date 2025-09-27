@@ -8,7 +8,7 @@ public class BoidSpeedDownForceUp : PlayerModifier
 
     public override void Apply(PlayerController player)
     {
-        var bm = Object.FindObjectOfType<BoidManager>();
+        var bm = Object.FindFirstObjectByType<BoidManager>();
         if (!bm) return;
 
         // 影响未来生成

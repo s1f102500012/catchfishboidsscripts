@@ -153,7 +153,7 @@ public class ShopManager : MonoBehaviour
 
         if (slot.cfg.modifier)
         {
-            var player = FindObjectOfType<PlayerController>();
+            var player = FindFirstObjectByType<PlayerController>();
             slot.cfg.modifier.Apply(player);
         }
 

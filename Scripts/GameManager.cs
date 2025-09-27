@@ -124,7 +124,6 @@ public class GameManager : MonoBehaviour
     // 供 Mods 调用的接口
     public static void CritAddFixedChance(float d) { if (Instance) Instance.critFixedChance  = Mathf.Clamp01(Instance.critFixedChance + Mathf.Max(0f,d)); }
     public static void CritSetDynamicChance(float v){ if (Instance) Instance.critDynamicChance = Mathf.Max(0f,v); }
-    public static void CritSetMultiplier(float m)   { if (Instance) Instance.critMultiplier   = Mathf.Max(1f,m); }
     public static void CritResetModel()
     {
         if (!Instance) return;
@@ -176,7 +175,6 @@ public class GameManager : MonoBehaviour
     int currency;          // 可消费余额（跨回合保留）
     int totalEarned;       // 本 run 获得总额（不减购买）
     int targetScore;
-    float scoreFactor = 1f;
     int currencyCheckpoint;      // 本小局开始时的余额
     int totalEarnedCheckpoint;   // 本小局开始时的已获得总分（用于丢弃被中断小局的收益）
 
@@ -254,14 +252,10 @@ public class GameManager : MonoBehaviour
 
     public int NextTarget => targetScore;   // 或你的实际字段名
 
-
-    public void RegisterScoreBonus(float k) => scoreFactor *= k;
-
     public void AddScore(int delta)
     {
-        int add = Mathf.RoundToInt(delta * scoreFactor);
-        currency += add;
-        totalEarned += add;
+        currency += delta;
+        totalEarned += delta;
         RefreshHUD();
     }
 
@@ -288,7 +282,7 @@ public class GameManager : MonoBehaviour
         ClearSpikeLayoutCheckpoint();
         GoldBuffSpeedFor2s.HardReset();
         spikePenaltyRate = 0.25f;                // 恢复默认25%
-        var bm = FindObjectOfType<BoidManager>();
+        var bm = FindFirstObjectByType<BoidManager>();
         if (bm) bm.extraGoldenPerWave = 0;       // 额外金鱼清零
         IncomePerSec1.HardReset();
         IncomePerSec2.HardReset();
@@ -432,7 +426,7 @@ public class GameManager : MonoBehaviour
             ClearSpikeLayoutCheckpoint();
             GoldBuffSpeedFor2s.HardReset();
             spikePenaltyRate = 0.25f;                // 恢复默认25%
-            var bm = FindObjectOfType<BoidManager>();
+            var bm = FindFirstObjectByType<BoidManager>();
             if (bm) bm.extraGoldenPerWave = 0;       // 额外金鱼清零
             IncomePerSec1.HardReset();
             IncomePerSec2.HardReset();
@@ -497,7 +491,6 @@ public class GameManager : MonoBehaviour
     // 新开一局前重置可变量（不清菜单）
     void NewRunReset()
     {
-        scoreFactor = 1f;
         timeLeft = matchTime;
         // currency/totalEarned/targetScore 不在此处清零，由 EnterMenu(hardReset:true) 负责
     }
@@ -618,8 +611,8 @@ public class GameManager : MonoBehaviour
         else shopPanel.SetActive(false);
         pausePanel.SetActive(true);
 
-        var p  = FindObjectOfType<PlayerController>();
-        var bm = FindObjectOfType<BoidManager>();
+        var p  = FindFirstObjectByType<PlayerController>();
+        var bm = FindFirstObjectByType<BoidManager>();
 
         // 金鱼概率（保持你原有写法，避免缺字段编译失败）
         float goldChance = bm ? Mathf.Clamp01(bm.goldenChance + bm.goldenChanceAddFromSpeed) : 0f;
@@ -660,8 +653,8 @@ public class GameManager : MonoBehaviour
 
     void ClearScene()
     {
-        var bm = FindObjectOfType<BoidManager>(); if (bm) bm.ClearAllBoids();
-        var sm = FindObjectOfType<SpikeManager>(); if (sm) sm.ClearAll();
+        var bm = FindFirstObjectByType<BoidManager>(); if (bm) bm.ClearAllBoids();
+        var sm = FindFirstObjectByType<SpikeManager>(); if (sm) sm.ClearAll();
     }
 
     void ResetPlayerToSpawn()
@@ -669,7 +662,7 @@ public class GameManager : MonoBehaviour
 #if UNITY_2023_1_OR_NEWER
         var p = FindAnyObjectByType<PlayerController>();
 #else
-        var p = FindObjectOfType<PlayerController>();
+        var p = FindFirstObjectByType<PlayerController>();
 #endif
         if (!p) return;
         p.ResetAt(playerSpawn);
@@ -678,8 +671,8 @@ public class GameManager : MonoBehaviour
     void CaptureBaselines()
     {
         if (baselineCaptured) return;
-        var p = FindObjectOfType<PlayerController>();
-        var bm = FindObjectOfType<BoidManager>();
+        var p = FindFirstObjectByType<PlayerController>();
+        var bm = FindFirstObjectByType<BoidManager>();
         if (p)
         {
             basePlayerMaxSpeed = p.maxSpeed;
@@ -702,7 +695,7 @@ public class GameManager : MonoBehaviour
         CritResetModel();
 
         // 2) 恢复管理器参数
-        var bm = FindObjectOfType<BoidManager>();
+        var bm = FindFirstObjectByType<BoidManager>();
         if (bm)
         {
             bm.boidsPerWave = baseBoidsPerWave;
@@ -710,7 +703,7 @@ public class GameManager : MonoBehaviour
         }
 
         // 3) 恢复玩家数值与外观
-        var p = FindObjectOfType<PlayerController>();
+        var p = FindFirstObjectByType<PlayerController>();
         if (p)
         {
             p.maxSpeed = basePlayerMaxSpeed;
@@ -718,8 +711,6 @@ public class GameManager : MonoBehaviour
             p.transform.localScale = basePlayerScale;
         }
 
-        // 4) 其它全局系数
-        scoreFactor = 1f;
     }
     public void OnAutoPlayToggle(bool on)
     {

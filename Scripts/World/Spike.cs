@@ -26,7 +26,7 @@ public class Spike : MonoBehaviour
         // 小鱼：按配置处理
         if (other.TryGetComponent(out Boid b))
         {
-            var bm = FindObjectOfType<BoidManager>();
+            var bm = FindFirstObjectByType<BoidManager>();
             if (!bm) { Destroy(b.gameObject); return; }
 
             // 道具：刺杀算玩家捕食

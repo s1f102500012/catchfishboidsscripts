@@ -14,7 +14,7 @@ public class IncomeIfUnderFishCap : PlayerModifier
 
     public override void Apply(PlayerController player)
     {
-        sRunner = player ? player : Object.FindObjectOfType<PlayerController>();
+        sRunner = player ? player : Object.FindFirstObjectByType<PlayerController>();
         sThresh = threshold; sIncome = incomePerSec;
         if (!sHooked && sRunner){ sCo = sRunner.StartCoroutine(Loop()); sHooked = true; }
     }

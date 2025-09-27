@@ -16,7 +16,7 @@ public class InterestEvery5s : PlayerModifier
     public override void Apply(PlayerController player)
     {
         sStacks++;
-        if (!sRunner) sRunner = Object.FindObjectOfType<PlayerController>();
+        if (!sRunner) sRunner = Object.FindFirstObjectByType<PlayerController>();
         if (sCo == null && sRunner) sCo = sRunner.StartCoroutine(Loop());
 
         if (!sHooked)

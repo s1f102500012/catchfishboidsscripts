@@ -20,7 +20,7 @@ public class RampUpSmallsPerRound : PlayerModifier
 
     static void OnRoundBegin()
     {
-        var bm = Object.FindObjectOfType<BoidManager>();
+        var bm = Object.FindFirstObjectByType<BoidManager>();
         if (!bm) return;
 
         // 撤销上一局的临时加成，然后计算本局
