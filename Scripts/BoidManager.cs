@@ -39,7 +39,14 @@ public class BoidManager : MonoBehaviour
 
     [Header("Fusion")]
     public bool fusionEnabled   = true;
+    [Tooltip("普通鱼→一级鱼的融合启用阈值")]
     public int  fusionThreshold = 200;
+    [Tooltip("一级鱼→二级鱼的融合启用阈值")]
+    public int  tier2FusionThreshold = 210;
+    [Tooltip("二级鱼→三级鱼的融合启用阈值")]
+    public int  tier3FusionThreshold = 220;
+    [Tooltip("三级鱼→四级鱼的融合启用阈值")]
+    public int  tier4FusionThreshold = 230;
     public int  maxFusionTier   = 4;   // ← 从 2 改为 4
 
     HashSet<int> merging = new();           // 防止同对重复融合
@@ -202,7 +209,8 @@ public class BoidManager : MonoBehaviour
     {
         if (!fusionEnabled || ActiveBoids == null) return;
         if (!a || !b || a == b) return;
-        if (ActiveBoids.Count < fusionThreshold) return;
+        int allowedFusionTier = GetHighestAllowedFusionTier(ActiveBoids.Count);
+        if (allowedFusionTier < 0 || a.fusionTier > allowedFusionTier) return;
         if (a.isGolden != b.isGolden) return;
         if (a.fusionTier != b.fusionTier) return;
         if (a.fusionTier >= maxFusionTier) return;
@@ -212,6 +220,22 @@ public class BoidManager : MonoBehaviour
 
         if (merging.Contains(a.GetInstanceID()) || merging.Contains(b.GetInstanceID())) return;
         StartCoroutine(FuseNextFrame(a, b));
+    }
+
+    int GetHighestAllowedFusionTier(int currentCount)
+    {
+        int allowed = -1;
+
+        if (currentCount > fusionThreshold)
+            allowed = 0;
+        if (currentCount > tier2FusionThreshold)
+            allowed = Mathf.Max(allowed, 1);
+        if (currentCount > tier3FusionThreshold)
+            allowed = Mathf.Max(allowed, 2);
+        if (currentCount > tier4FusionThreshold)
+            allowed = Mathf.Max(allowed, 3);
+
+        return allowed;
     }
 
     System.Collections.IEnumerator FuseNextFrame(Boid a, Boid b)
