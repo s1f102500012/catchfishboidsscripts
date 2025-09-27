@@ -124,7 +124,6 @@ public class GameManager : MonoBehaviour
     // 供 Mods 调用的接口
     public static void CritAddFixedChance(float d) { if (Instance) Instance.critFixedChance  = Mathf.Clamp01(Instance.critFixedChance + Mathf.Max(0f,d)); }
     public static void CritSetDynamicChance(float v){ if (Instance) Instance.critDynamicChance = Mathf.Max(0f,v); }
-    public static void CritSetMultiplier(float m)   { if (Instance) Instance.critMultiplier   = Mathf.Max(1f,m); }
     public static void CritResetModel()
     {
         if (!Instance) return;
@@ -176,7 +175,6 @@ public class GameManager : MonoBehaviour
     int currency;          // 可消费余额（跨回合保留）
     int totalEarned;       // 本 run 获得总额（不减购买）
     int targetScore;
-    float scoreFactor = 1f;
     int currencyCheckpoint;      // 本小局开始时的余额
     int totalEarnedCheckpoint;   // 本小局开始时的已获得总分（用于丢弃被中断小局的收益）
 
@@ -254,14 +252,10 @@ public class GameManager : MonoBehaviour
 
     public int NextTarget => targetScore;   // 或你的实际字段名
 
-
-    public void RegisterScoreBonus(float k) => scoreFactor *= k;
-
     public void AddScore(int delta)
     {
-        int add = Mathf.RoundToInt(delta * scoreFactor);
-        currency += add;
-        totalEarned += add;
+        currency += delta;
+        totalEarned += delta;
         RefreshHUD();
     }
 
@@ -497,7 +491,6 @@ public class GameManager : MonoBehaviour
     // 新开一局前重置可变量（不清菜单）
     void NewRunReset()
     {
-        scoreFactor = 1f;
         timeLeft = matchTime;
         // currency/totalEarned/targetScore 不在此处清零，由 EnterMenu(hardReset:true) 负责
     }
@@ -718,8 +711,6 @@ public class GameManager : MonoBehaviour
             p.transform.localScale = basePlayerScale;
         }
 
-        // 4) 其它全局系数
-        scoreFactor = 1f;
     }
     public void OnAutoPlayToggle(bool on)
     {
