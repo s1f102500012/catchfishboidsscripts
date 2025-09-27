@@ -122,25 +122,42 @@ public class PlayerController : MonoBehaviour
         float effAccelRate = CurrentAccelRate;
         
         Vector2 inputDir = externalControl ? externalMoveDir : moveInput;
-        Vector2 accel = inputDir.normalized * effAccelRate;
+        Vector2 clampedInput = Vector2.ClampMagnitude(inputDir, 1f);
 
 #if UNITY_2023_1_OR_NEWER
-        Vector2 v = rb.linearVelocity + accel * Time.fixedDeltaTime;
+        Vector2 currentVelocity = rb.linearVelocity;
 #else
-        Vector2 v = rb.velocity + accel * Time.fixedDeltaTime;
+        Vector2 currentVelocity = rb.velocity;
 #endif
 
-        // 松开方向键时刹车
-        if (inputDir.sqrMagnitude < 0.01f)
+        // 以输入方向为目标速度，保留模拟的加速度感，同时兼容摇杆的细腻输入
+        Vector2 desiredVelocity = clampedInput * effMaxSpeed;
+        float maxDelta = effAccelRate * Time.fixedDeltaTime;
+        Vector2 v = Vector2.MoveTowards(currentVelocity, desiredVelocity, maxDelta);
+
+        // 输入接近零时额外使用制动，避免小量残留速度带来的漂移感
+        if (clampedInput.sqrMagnitude < 0.0001f)
+        {
             v = Vector2.MoveTowards(v, Vector2.zero, brakeRate * Time.fixedDeltaTime);
+        }
 
 #if UNITY_2023_1_OR_NEWER
         rb.linearVelocity = Vector2.ClampMagnitude(v, effMaxSpeed);
-        if (rb.linearVelocity.sqrMagnitude > 0.01f) transform.up = rb.linearVelocity;
+        Vector2 appliedVelocity = rb.linearVelocity;
 #else
         rb.velocity = Vector2.ClampMagnitude(v, effMaxSpeed);
-        if (rb.velocity.sqrMagnitude > 0.01f) transform.up = rb.velocity;
+        Vector2 appliedVelocity = rb.velocity;
 #endif
+
+        if (appliedVelocity.sqrMagnitude > 0.01f)
+        {
+            Vector3 targetForward = new(appliedVelocity.x, appliedVelocity.y, 0f);
+            Vector3 smoothedForward = Vector3.Lerp(transform.up, targetForward.normalized, 0.4f);
+            if (smoothedForward.sqrMagnitude > 0.0001f)
+            {
+                transform.up = smoothedForward.normalized;
+            }
+        }
 
         BounceWalls();
     }
