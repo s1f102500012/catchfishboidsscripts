@@ -13,7 +13,7 @@ public class CritPerSpikeWall : PlayerModifier
     public override void Apply(PlayerController player)
     {
         sStacks++;
-        if (!sRunner) sRunner = player ? player : Object.FindObjectOfType<PlayerController>();
+        if (!sRunner) sRunner = player ? player : Object.FindFirstObjectByType<PlayerController>();
         if (sCo == null && sRunner) sCo = sRunner.StartCoroutine(Loop());
     }
 

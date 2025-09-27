@@ -7,7 +7,7 @@ public class AddGoldChanceFlat : PlayerModifier
 
     public override void Apply(PlayerController player)
     {
-        var mgr = Object.FindObjectOfType<BoidManager>();
+        var mgr = Object.FindFirstObjectByType<BoidManager>();
         if (!mgr) return;
         mgr.goldenChance = Mathf.Clamp01(mgr.goldenChance + add);
     }

@@ -16,10 +16,10 @@ public class Spawn3SmallOnGold : PlayerModifier
 
     void Handle()
     {
-        var mgr = Object.FindObjectOfType<BoidManager>();
+        var mgr = Object.FindFirstObjectByType<BoidManager>();
         if (!mgr || !mgr.boidPrefab) return;
 
-        var pTr = mgr.Player ? mgr.Player : Object.FindObjectOfType<PlayerController>()?.transform;
+        var pTr = mgr.Player ? mgr.Player : Object.FindFirstObjectByType<PlayerController>()?.transform;
         if (!pTr) return;
 
         for (int i = 0; i < 1; i++)

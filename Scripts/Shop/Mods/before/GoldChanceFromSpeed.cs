@@ -17,7 +17,7 @@ public class GoldChanceFromSpeed : PlayerModifier
     public override void Apply(PlayerController player)
     {
         sStacks++;
-        if (!sPlayer) sPlayer = player ? player : Object.FindObjectOfType<PlayerController>();
+        if (!sPlayer) sPlayer = player ? player : Object.FindFirstObjectByType<PlayerController>();
         if (!sHooked && sPlayer) { sCo = sPlayer.StartCoroutine(Loop()); sHooked = true; }
     }
 

@@ -58,7 +58,7 @@ public class Boid : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
-        mgr = FindObjectOfType<BoidManager>();
+        mgr = FindFirstObjectByType<BoidManager>();
         spikeMask = LayerMask.GetMask("Spike");           // ★ Layer 需命名 Spike
         UpdateTierVisual();
     }

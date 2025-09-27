@@ -7,7 +7,7 @@ public class DoubleNaturalGoldChance : PlayerModifier
 
     public override void Apply(PlayerController player)
     {
-        var mgr = Object.FindObjectOfType<BoidManager>();
+        var mgr = Object.FindFirstObjectByType<BoidManager>();
         if (!mgr) return;
 
         // 对“当前概率”直接乘算；仅物理上限到 100%

@@ -14,7 +14,7 @@ public class OverTargetSpeedAccelBoost : PlayerModifier
 
     public override void Apply(PlayerController player)
     {
-        sPlayer = player ? player : Object.FindObjectOfType<PlayerController>();
+        sPlayer = player ? player : Object.FindFirstObjectByType<PlayerController>();
         sMult = Mathf.Max(1f, multiplier);
         sInv  = 1f / sMult;
         if (!sHooked && sPlayer){ sCo = sPlayer.StartCoroutine(Loop()); sHooked = true; }
