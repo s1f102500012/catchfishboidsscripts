@@ -617,8 +617,8 @@ public class GameManager : MonoBehaviour
         // 金鱼概率（保持你原有写法，避免缺字段编译失败）
         float goldChance = bm ? Mathf.Clamp01(bm.goldenChance + bm.goldenChanceAddFromSpeed) : 0f;
 
-        // 新：每波鱼群的小鱼数量（受所有道具与加成影响）
-        int smallPerWave = bm ? bm.boidsPerWave : 0;
+        // 新：每波鱼群的鱼只数量（含额外金鱼，受所有道具与加成影响）
+        int fishPerWave = bm ? bm.boidsPerWave + bm.extraGoldenPerWave : 0;
 
 
         // 当前暴击倍率
@@ -631,7 +631,7 @@ public class GameManager : MonoBehaviour
                 $"{p.CurrentAccelRate:F1}\n" +  // 加速度
                 $"{goldChance:P1}\n" +          // 金鱼概率
                 $"{critRate:P1}\n" +            // 暴击率
-                $"{smallPerWave}\n" +           // ★ 鱼群中的小鱼数量（每波）
+                $"{fishPerWave}\n" +            // ★ 鱼群中的鱼只数量（每波）
                 $"{curCritMult}";           // 暴击倍率
 
     }
