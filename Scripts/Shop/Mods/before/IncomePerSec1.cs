@@ -11,7 +11,7 @@ public class IncomePerSec1 : PlayerModifier
     public override void Apply(PlayerController player)
     {
         stacks = Mathf.Max(0, stacks + 1);
-        if (!holder) holder = Object.FindObjectOfType<PlayerController>();
+        if (!holder) holder = Object.FindFirstObjectByType<PlayerController>();
         if (co == null && holder) co = holder.StartCoroutine(Loop());
     }
 

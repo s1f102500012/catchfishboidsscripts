@@ -34,7 +34,7 @@ public class GoldBuffSpeedFor2s : PlayerModifier
 
     static void OnGoldFish(Vector2 _)
     {
-        if (!sPlayer) sPlayer = Object.FindObjectOfType<PlayerController>();
+        if (!sPlayer) sPlayer = Object.FindFirstObjectByType<PlayerController>();
         if (!sPlayer || sOwned <= 0) return;
 
         float targetMult = Mathf.Pow(sPerItem, sOwned); // 例：买2个→1.1^2=1.21

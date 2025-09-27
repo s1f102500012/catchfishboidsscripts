@@ -20,7 +20,7 @@ public class EatNearestOnGold : PlayerModifier
     static void OnGold(Vector2 _)
     {
         var bm = BoidManager.Instance; if (bm == null) return;
-        var pc = Object.FindObjectOfType<PlayerController>(); if (!pc) return;
+        var pc = Object.FindFirstObjectByType<PlayerController>(); if (!pc) return;
 
         int need = sStacks * sExtraPerStack;
         if (need <= 0 || bm.ActiveBoids == null || bm.ActiveBoids.Count == 0) return;

@@ -43,7 +43,7 @@ public class MenuBackground : MonoBehaviour
     #if UNITY_2023_1_OR_NEWER
         realPlayer = FindFirstObjectByType<PlayerController>(FindObjectsInactive.Include);
     #else
-        realPlayer = FindObjectOfType<PlayerController>();
+        realPlayer = FindFirstObjectByType<PlayerController>();
     #endif
         if (realPlayer)
         {
