@@ -76,7 +76,8 @@ public class Boid : MonoBehaviour
             + spikeRepelWeight * SteerAvoidSpike()        // ★ 新增
             + wallRepelWeight * SteerAvoidWalls();
 
-        Vector2 v = rb.linearVelocity + accel * Time.fixedDeltaTime;
+        float dt = Time.fixedDeltaTime;
+        Vector2 v = rb.linearVelocity + accel * dt;
         rb.linearVelocity = Vector2.ClampMagnitude(v, maxSpeed);
 
         if (rb.linearVelocity.sqrMagnitude > 0.0001f)
@@ -101,27 +102,51 @@ public class Boid : MonoBehaviour
     {
         if (neighbors.Count == 0) return Vector2.zero;
         Vector2 sum = Vector2.zero;
+        float radiusSqr = separationRadius * separationRadius;
+        int validCount = 0;
         foreach (var n in neighbors)
         {
+            if (!n) continue;
             Vector2 diff = (Vector2)transform.position - (Vector2)n.transform.position;
-            float d = diff.magnitude;
-            if (d < separationRadius && d > 0f) sum += diff / d;
+            float sqrMag = diff.sqrMagnitude;
+            if (sqrMag < radiusSqr && sqrMag > 1e-6f)
+            {
+                float invMag = 1f / Mathf.Sqrt(sqrMag);
+                sum += diff * invMag;
+                validCount++;
+            }
         }
-        return SteerTowards(sum / neighbors.Count);
+        return validCount > 0 ? SteerTowards(sum / validCount) : Vector2.zero;
     }
     Vector2 SteerCohesion()
     {
         if (neighbors.Count == 0) return Vector2.zero;
         Vector2 center = Vector2.zero;
-        foreach (var n in neighbors) center += (Vector2)n.transform.position;
-        return SteerTowards(center / neighbors.Count - rb.position);
+        int validCount = 0;
+        foreach (var n in neighbors)
+        {
+            if (!n) continue;
+            center += (Vector2)n.transform.position;
+            validCount++;
+        }
+        if (validCount == 0) return Vector2.zero;
+        float invCount = 1f / validCount;
+        return SteerTowards(center * invCount - rb.position);
     }
     Vector2 SteerAlignment()
     {
         if (neighbors.Count == 0) return Vector2.zero;
         Vector2 avg = Vector2.zero;
-        foreach (var n in neighbors) avg += n.rb.linearVelocity;
-        return SteerTowards(avg / neighbors.Count);
+        int validCount = 0;
+        foreach (var n in neighbors)
+        {
+            if (!n) continue;
+            avg += n.rb.linearVelocity;
+            validCount++;
+        }
+        if (validCount == 0) return Vector2.zero;
+        float invCount = 1f / validCount;
+        return SteerTowards(avg * invCount);
     }
     Vector2 SteerFleePredator()
     {
@@ -136,17 +161,38 @@ public class Boid : MonoBehaviour
         Collider2D hit = Physics2D.OverlapCircle(transform.position, spikeRepelRadius, spikeMask);
         if (!hit) return Vector2.zero;
 
-        Vector2 away = (Vector2)transform.position - hit.attachedRigidbody.position;
+        Vector2 spikePos = hit.attachedRigidbody ? hit.attachedRigidbody.position : (Vector2)hit.transform.position;
+        Vector2 away = (Vector2)transform.position - spikePos;
         return SteerTowards(away);
     }
     Vector2 SteerAvoidWalls()
     {
         Vector2 steer = Vector2.zero, pos = rb.position, half = mgr.spawnArea;
         float r = wallRepelRadius;
-        float dL = pos.x + half.x; if (dL < r) steer += Vector2.right * Mathf.Pow(1f - dL / r, 2);
-        float dR = half.x - pos.x; if (dR < r) steer += Vector2.left * Mathf.Pow(1f - dR / r, 2);
-        float dB = pos.y + half.y; if (dB < r) steer += Vector2.up * Mathf.Pow(1f - dB / r, 2);
-        float dT = half.y - pos.y; if (dT < r) steer += Vector2.down * Mathf.Pow(1f - dT / r, 2);
+        float dL = pos.x + half.x;
+        if (dL < r)
+        {
+            float ratio = 1f - dL / r;
+            steer += Vector2.right * (ratio * ratio);
+        }
+        float dR = half.x - pos.x;
+        if (dR < r)
+        {
+            float ratio = 1f - dR / r;
+            steer += Vector2.left * (ratio * ratio);
+        }
+        float dB = pos.y + half.y;
+        if (dB < r)
+        {
+            float ratio = 1f - dB / r;
+            steer += Vector2.up * (ratio * ratio);
+        }
+        float dT = half.y - pos.y;
+        if (dT < r)
+        {
+            float ratio = 1f - dT / r;
+            steer += Vector2.down * (ratio * ratio);
+        }
         return SteerTowards(steer);
     }
     Vector2 SteerTowards(Vector2 vec)
@@ -161,10 +207,14 @@ public class Boid : MonoBehaviour
     void SampleNeighbors()
     {
         neighbors.Clear();
+        float radiusSqr = perceptionRadius * perceptionRadius;
         foreach (var o in mgr.ActiveBoids)
-            if (o != this &&
-                ((Vector2)o.transform.position - rb.position).magnitude < perceptionRadius)
+        {
+            if (!o || o == this) continue;
+            Vector2 delta = (Vector2)o.transform.position - rb.position;
+            if (delta.sqrMagnitude < radiusSqr)
                 neighbors.Add(o);
+        }
     }
     void BounceWalls()
     {
