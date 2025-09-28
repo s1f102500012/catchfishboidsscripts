@@ -134,15 +134,6 @@ public class GameManager : MonoBehaviour
         Instance.critBonusFromProgress = 0f;   // ★
     }
 
-
-
-    // ===== Score Floors =====
-    [Header("Score Floors")]
-    public int smallScoreFloor = 0;
-    public int goldScoreFloor  = 0;
-    public static void SetSmallScoreFloor(int v){ if (Instance) Instance.smallScoreFloor = Mathf.Max(0,v); }
-    public static void SetGoldScoreFloor (int v){ if (Instance) Instance.goldScoreFloor  = Mathf.Max(0,v); }
-
     [Header("Score Adders")]
     public int smallScoreAdd = 0;   // 小鱼额外加分（叠加）
     public int goldScoreAdd  = 0;   // 金鱼额外加分（叠加）
@@ -300,8 +291,6 @@ public class GameManager : MonoBehaviour
         GoldSplitOnSmallBounce.HardReset();
         GoldBounceSplitGold.HardReset();
         SmallBounceSplitSmall.HardReset();
-        smallScoreFloor = 0;
-        goldScoreFloor  = 0;
         CritToSmallsPerWave.HardReset();
         ResetScoreAdders();
         SmallBaseScoreTo2.HardReset();
@@ -444,8 +433,6 @@ public class GameManager : MonoBehaviour
             GoldSplitOnSmallBounce.HardReset();
             GoldBounceSplitGold.HardReset();
             SmallBounceSplitSmall.HardReset();
-            smallScoreFloor = 0;
-            goldScoreFloor  = 0;
             CritToSmallsPerWave.HardReset();
             ResetScoreAdders();
             SmallBaseScoreTo2.HardReset();
@@ -805,9 +792,8 @@ public class GameManager : MonoBehaviour
     int GetEffectiveFishValue(int baseScore, bool isGolden)
     {
         int add = isGolden ? goldScoreAdd : smallScoreAdd;
-        int floor = Mathf.Max(0, isGolden ? goldScoreFloor : smallScoreFloor);
         int total = Mathf.Max(0, baseScore) + Mathf.Max(0, add);
-        return Mathf.Max(total, floor);
+        return total;
     }
 
 }
