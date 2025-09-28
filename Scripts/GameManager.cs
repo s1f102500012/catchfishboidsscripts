@@ -39,7 +39,7 @@ public class GameManager : MonoBehaviour
     public TMP_Text shopTargetText, availText;
 
     [Header("Pause Text")]
-    public TMP_Text pauseStatsText;          // 显示速度/加速度
+    public TMP_Text pauseStatsText;          // 显示暂停面板统计
 
     [Header("Main Menu Buttons (Optional)")]
     public Button mainMenuContinueButton;    // 可不填；若填则自动控制 interactable
@@ -620,6 +620,19 @@ public class GameManager : MonoBehaviour
         // 新：每波鱼群的鱼只数量（含额外金鱼，受所有道具与加成影响）
         int fishPerWave = bm ? bm.boidsPerWave + bm.extraGoldenPerWave : 0;
 
+        // 新：当前本局小鱼、金鱼的结算价值
+        int smallBaseScore = 0;
+        int goldBaseScore  = 0;
+        if (bm)
+        {
+            if (bm.boidPrefab)
+                smallBaseScore = Mathf.Max(0, bm.boidPrefab.scoreValue);
+            goldBaseScore = Mathf.Max(0, bm.goldenScoreValue);
+        }
+
+        int smallValue = GetEffectiveFishValue(smallBaseScore, false);
+        int goldValue  = GetEffectiveFishValue(goldBaseScore,  true);
+
 
         // 当前暴击倍率
         float curCritMult = critMultiplier;
@@ -632,6 +645,8 @@ public class GameManager : MonoBehaviour
                 $"{goldChance:P1}\n" +          // 金鱼概率
                 $"{critRate:P1}\n" +            // 暴击率
                 $"{fishPerWave}\n" +            // ★ 鱼群中的鱼只数量（每波）
+                $"{smallValue}\n" +            // ★ 当前小鱼价值
+                $"{goldValue}\n" +             // ★ 当前金鱼价值
                 $"{curCritMult}";           // 暴击倍率
 
     }
@@ -770,11 +785,7 @@ public class GameManager : MonoBehaviour
         if (!boid) return;
 
         int baseScore = boid.scoreValue;
-        // 叠加型加分
-        int add = boid.isGolden ? goldScoreAdd : smallScoreAdd;
-        // 若你仍保留“分数下限 floor”，与加分并行取最大
-        int floor = boid.isGolden ? goldScoreFloor : smallScoreFloor;  // 若没有 floor，可将其视为 0
-        int effBase = Mathf.Max(baseScore + add, floor);
+        int effBase = GetEffectiveFishValue(baseScore, boid.isGolden);
 
         int baseDelta = effBase - baseScore;
         if (baseDelta > 0) AddScore(baseDelta);
@@ -790,5 +801,13 @@ public class GameManager : MonoBehaviour
     }
 
 
+
+    int GetEffectiveFishValue(int baseScore, bool isGolden)
+    {
+        int add = isGolden ? goldScoreAdd : smallScoreAdd;
+        int floor = Mathf.Max(0, isGolden ? goldScoreFloor : smallScoreFloor);
+        int total = Mathf.Max(0, baseScore) + Mathf.Max(0, add);
+        return Mathf.Max(total, floor);
+    }
 
 }
