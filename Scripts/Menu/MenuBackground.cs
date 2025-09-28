@@ -124,9 +124,12 @@ public class MenuBackground : MonoBehaviour
             Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, bm.transform);
             b.isGolden = false;
 
-            // 全局乘子与初速度
-            b.maxSpeed *= bm.globalSpeedMult;
-            b.maxForce *= bm.globalForceMult;
+            float speedScale = Random.Range(0.99f, 1.02f);
+            float forceScale = Random.Range(0.99f, 1.02f);
+            float sizeScale  = Random.Range(0.99f, 1.02f);
+
+            b.SetRandomScales(speedScale, forceScale, sizeScale);
+            b.SetGlobalScales(bm.globalSpeedMult, bm.globalForceMult);
 
 #if UNITY_2023_1_OR_NEWER
             var rb = b.GetComponent<Rigidbody2D>();

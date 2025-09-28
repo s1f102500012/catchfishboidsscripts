@@ -48,6 +48,21 @@ public class Boid : MonoBehaviour
     [HideInInspector] public bool isGolden = false;
     [HideInInspector] public int scoreValue = 1;
 
+    /* ---------- 随机/全局系数 ---------- */
+    float baseMaxSpeed;
+    float baseMaxForce;
+    Vector3 baseScale;
+
+    float randomSpeedScale = 1f;
+    float randomForceScale = 1f;
+    float randomSizeScale = 1f;
+
+    float globalSpeedScale = 1f;
+    float globalForceScale = 1f;
+
+    float goldenSpeedScale = 1f;
+    float goldenForceScale = 1f;
+
     /* ---------- 引用 ---------- */
     Rigidbody2D rb;
     BoidManager mgr;
@@ -60,6 +75,12 @@ public class Boid : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         mgr = FindFirstObjectByType<BoidManager>();
         spikeMask = LayerMask.GetMask("Spike");           // ★ Layer 需命名 Spike
+
+        baseMaxSpeed = maxSpeed;
+        baseMaxForce = maxForce;
+        baseScale = transform.localScale;
+        UpdateScaledStats();
+
         UpdateTierVisual();
     }
 
@@ -90,8 +111,7 @@ public class Boid : MonoBehaviour
     public void ConfigureAsGolden(float speedMul, float forceMul, int val, Color col)
     {
         isGolden = true; scoreValue = val;
-        maxSpeed *= speedMul;
-        maxForce *= forceMul;
+        SetGoldenScales(speedMul, forceMul);
         GetComponent<SpriteRenderer>().color = col;
         GetComponent<Trail2D>()?.RefreshFromSprite();
     }
@@ -281,7 +301,49 @@ public class Boid : MonoBehaviour
             GlobalEvents.RaiseFishBoundaryBounce(this, pos);
         }
     }
-    
+
+    public void SetRandomScales(float speedScale, float forceScale, float sizeScale)
+    {
+        randomSpeedScale = speedScale;
+        randomForceScale = forceScale;
+        randomSizeScale = sizeScale;
+        UpdateScaledStats();
+    }
+
+    public void SetGlobalScales(float speedScale, float forceScale)
+    {
+        globalSpeedScale = speedScale;
+        globalForceScale = forceScale;
+        UpdateScaledStats();
+    }
+
+    public void MultiplyGlobalScales(float speedScale, float forceScale)
+    {
+        globalSpeedScale *= speedScale;
+        globalForceScale *= forceScale;
+        UpdateScaledStats();
+    }
+
+    public void SetGoldenScales(float speedScale, float forceScale)
+    {
+        goldenSpeedScale = speedScale;
+        goldenForceScale = forceScale;
+        UpdateScaledStats();
+    }
+
+    public float RandomSpeedScale => randomSpeedScale;
+    public float RandomForceScale => randomForceScale;
+    public float RandomSizeScale => randomSizeScale;
+    public float GlobalSpeedScale => globalSpeedScale;
+    public float GlobalForceScale => globalForceScale;
+
+    void UpdateScaledStats()
+    {
+        maxSpeed = baseMaxSpeed * randomSpeedScale * globalSpeedScale * goldenSpeedScale;
+        maxForce = baseMaxForce * randomForceScale * globalForceScale * goldenForceScale;
+        transform.localScale = baseScale * randomSizeScale;
+    }
+
     public void SetTier(int t)
     {
         fusionTier = Mathf.Clamp(t, 0, (BoidManager.Instance ? BoidManager.Instance.maxFusionTier : 2));

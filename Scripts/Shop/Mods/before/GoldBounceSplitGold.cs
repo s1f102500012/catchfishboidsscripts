@@ -35,9 +35,13 @@ public class GoldBounceSplitGold : PlayerModifier
         Vector2 p2   = pos + back * sBack;
 
         var nb = Object.Instantiate(bm.boidPrefab, p2, Quaternion.identity, bm.transform);
+        float speedScale = Random.Range(0.99f, 1.02f);
+        float forceScale = Random.Range(0.99f, 1.02f);
+        float sizeScale  = Random.Range(0.99f, 1.02f);
+
+        nb.SetRandomScales(speedScale, forceScale, sizeScale);
+        nb.SetGlobalScales(bm.globalSpeedMult, bm.globalForceMult);
         nb.ConfigureAsGolden(bm.goldenSpeedMultiplier, bm.goldenForceMultiplier, bm.goldenScoreValue, bm.goldenColor);
-        nb.maxSpeed *= bm.globalSpeedMult;
-        nb.maxForce *= bm.globalForceMult;
         nb.SetTier(b.fusionTier);
 #if UNITY_2023_1_OR_NEWER
         nb.GetComponent<Rigidbody2D>().linearVelocity = back * (nb.maxSpeed * sK);

@@ -41,11 +41,14 @@ public class SpawnGoldOnGold : PlayerModifier
         Vector2 pos = (Vector2)pl.transform.position - fwd * sBackOffset + Random.insideUnitCircle * 0.05f;
 
         Boid b = Object.Instantiate(bm.boidPrefab, pos, Quaternion.identity, bm.transform);
+        float speedScale = Random.Range(0.99f, 1.02f);
+        float forceScale = Random.Range(0.99f, 1.02f);
+        float sizeScale  = Random.Range(0.99f, 1.02f);
+
+        b.SetRandomScales(speedScale, forceScale, sizeScale);
+        b.SetGlobalScales(bm.globalSpeedMult, bm.globalForceMult);
         if (golden)
             b.ConfigureAsGolden(bm.goldenSpeedMultiplier, bm.goldenForceMultiplier, bm.goldenScoreValue, bm.goldenColor);
-
-        b.maxSpeed *= bm.globalSpeedMult;
-        b.maxForce *= bm.globalForceMult;
 
 #if UNITY_2023_1_OR_NEWER
         var prv = pl.GetComponent<Rigidbody2D>().linearVelocity;
