@@ -158,12 +158,47 @@ public class Boid : MonoBehaviour
     /* -- 新：避刺墙 -- */
     Vector2 SteerAvoidSpike()
     {
-        Collider2D hit = Physics2D.OverlapCircle(transform.position, spikeRepelRadius, spikeMask);
-        if (!hit) return Vector2.zero;
+        Vector2 pos = rb.position;
+        Collider2D[] hits = Physics2D.OverlapCircleAll(pos, spikeRepelRadius, spikeMask);
+        if (hits == null || hits.Length == 0)
+            return Vector2.zero;
 
-        Vector2 spikePos = hit.attachedRigidbody ? hit.attachedRigidbody.position : (Vector2)hit.transform.position;
-        Vector2 away = (Vector2)transform.position - spikePos;
-        return SteerTowards(away);
+        Vector2 repel = Vector2.zero;
+        float totalWeight = 0f;
+        for (int i = 0; i < hits.Length; i++)
+        {
+            var hit = hits[i];
+            if (!hit) continue;
+
+            Vector2 closest = hit.ClosestPoint(pos);
+            Vector2 diff = pos - closest;
+            float dist = diff.magnitude;
+            if (dist < 1e-4f)
+            {
+                // Fallback to collider center to avoid zero-length vectors.
+                diff = pos - (Vector2)hit.transform.position;
+                dist = diff.magnitude;
+                if (dist < 1e-4f) continue;
+            }
+
+            float weight = 1f / Mathf.Max(dist, 0.05f); // closer spikes push更强
+            repel += diff.normalized * weight;
+            totalWeight += weight;
+        }
+
+        if (totalWeight <= 0f)
+            return Vector2.zero;
+
+        Vector2 steerDir = repel / totalWeight;
+        if (steerDir == Vector2.zero)
+        {
+            // Near完美对称时，向当前速度的侧向偏移一点，帮助滑出拐角
+            Vector2 v = rb.linearVelocity;
+            if (v.sqrMagnitude > 0.0001f)
+                steerDir = new Vector2(-v.y, v.x).normalized; // 取一侧切向
+        }
+
+        return SteerTowards(steerDir);
     }
     Vector2 SteerAvoidWalls()
     {
