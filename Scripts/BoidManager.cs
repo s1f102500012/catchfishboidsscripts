@@ -152,9 +152,12 @@ public class BoidManager : MonoBehaviour
             Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
             Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
 
-            /* 原先的 b.Initialise(this); 已不需要 */
-        b.maxSpeed *= globalSpeedMult;
-        b.maxForce *= globalForceMult;
+            float speedScale = Random.Range(0.99f, 1.02f);
+            float forceScale = Random.Range(0.99f, 1.02f);
+            float sizeScale  = Random.Range(0.99f, 1.02f);
+
+            b.SetRandomScales(speedScale, forceScale, sizeScale);
+            b.SetGlobalScales(globalSpeedMult, globalForceMult);
 
 
             // ① 若你已算好 goldenChanceAddFromSpeed（0~1）：
@@ -182,11 +185,13 @@ public class BoidManager : MonoBehaviour
             Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
 
             Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
-            b.ConfigureAsGolden(goldenSpeedMultiplier, goldenForceMultiplier, goldenScoreValue, goldenColor);
+            float speedScale = Random.Range(0.99f, 1.02f);
+            float forceScale = Random.Range(0.99f, 1.02f);
+            float sizeScale  = Random.Range(0.99f, 1.02f);
 
-            // ★ 全局乘子同样作用于这批金鱼
-            b.maxSpeed *= globalSpeedMult;
-            b.maxForce *= globalForceMult;
+            b.SetRandomScales(speedScale, forceScale, sizeScale);
+            b.SetGlobalScales(globalSpeedMult, globalForceMult);
+            b.ConfigureAsGolden(goldenSpeedMultiplier, goldenForceMultiplier, goldenScoreValue, goldenColor);
 
 #if UNITY_2023_1_OR_NEWER
             b.GetComponent<Rigidbody2D>().linearVelocity = goldFleeDir * b.maxSpeed * 0.5f;
@@ -265,13 +270,19 @@ public class BoidManager : MonoBehaviour
 
        // 生成新鱼（同色，阶数+1），属性沿用原鱼
        Boid nb = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
+
+        float avgSpeedScale = (a.RandomSpeedScale + b.RandomSpeedScale) * 0.5f;
+        float avgForceScale = (a.RandomForceScale + b.RandomForceScale) * 0.5f;
+        float avgSizeScale  = (a.RandomSizeScale  + b.RandomSizeScale)  * 0.5f;
+
+        nb.SetRandomScales(avgSpeedScale, avgForceScale, avgSizeScale);
+        nb.SetGlobalScales(globalSpeedMult, globalForceMult);
+
         if (a.isGolden)
             nb.ConfigureAsGolden(goldenSpeedMultiplier, goldenForceMultiplier, goldenScoreValue, goldenColor);
         else
             nb.isGolden = false;
 
-        nb.maxSpeed         = a.maxSpeed;
-        nb.maxForce         = a.maxForce;              // ← 用 maxForce 代替 accel
         nb.perceptionRadius = a.perceptionRadius;
         nb.separationRadius = a.separationRadius;
         nb.SetTier(a.fusionTier + 1);

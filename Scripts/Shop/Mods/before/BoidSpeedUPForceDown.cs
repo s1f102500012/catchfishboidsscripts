@@ -21,8 +21,7 @@ public class BoidSpeedUpForceDown : PlayerModifier
             foreach (var b in bm.ActiveBoids)
             {
                 if (!b) continue;
-                b.maxSpeed *= speedMul;
-                b.maxForce *= forceMul;
+                b.MultiplyGlobalScales(speedMul, forceMul);
             }
         }
     }
