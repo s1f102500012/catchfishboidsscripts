@@ -31,9 +31,8 @@ public class SmallToGoldChance : PlayerModifier
         GetBehind(mgr, pTr, out spawnPos, out fleeDir);
 
         Boid b = Object.Instantiate(mgr.boidPrefab, spawnPos, Quaternion.identity, mgr.transform);
-        float speedScale = Random.Range(0.99f, 1.02f);
-        float forceScale = Random.Range(0.99f, 1.02f);
-        float sizeScale  = Random.Range(0.99f, 1.02f);
+        mgr.SampleRandomScales(false, out float speedScale, out float forceScale, out float sizeScale);
+
 
         b.SetRandomScales(speedScale, forceScale, sizeScale);
         b.SetGlobalScales(mgr.globalSpeedMult, mgr.globalForceMult);

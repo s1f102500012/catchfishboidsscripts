@@ -315,7 +315,7 @@ public class BoidManager : MonoBehaviour
         return Mathf.Max(0f, first + second - 1f);
     }
 
-    private void SampleRandomScales(bool forGolden, out float speed, out float force, out float size)
+    public void SampleRandomScales(bool forGolden, out float speed, out float force, out float size)
     {
         Vector2 speedRange = forGolden ? goldenSpeedRandomRange : speedRandomRange;
         Vector2 forceRange = forGolden ? goldenForceRandomRange : forceRandomRange;

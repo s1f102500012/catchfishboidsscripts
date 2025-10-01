@@ -37,9 +37,7 @@ public class SmallBounceSplitSmall : PlayerModifier
         var nb = Object.Instantiate(bm.boidPrefab, p2, Quaternion.identity, bm.transform);
         nb.isGolden = false;
 
-        float speedScale = Random.Range(0.99f, 1.02f);
-        float forceScale = Random.Range(0.99f, 1.02f);
-        float sizeScale  = Random.Range(0.99f, 1.02f);
+        bm.SampleRandomScales(false, out float speedScale, out float forceScale, out float sizeScale);
 
         nb.SetRandomScales(speedScale, forceScale, sizeScale);
         nb.SetGlobalScales(bm.globalSpeedMult, bm.globalForceMult);

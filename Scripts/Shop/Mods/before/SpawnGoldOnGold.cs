@@ -41,9 +41,7 @@ public class SpawnGoldOnGold : PlayerModifier
         Vector2 pos = (Vector2)pl.transform.position - fwd * sBackOffset + Random.insideUnitCircle * 0.05f;
 
         Boid b = Object.Instantiate(bm.boidPrefab, pos, Quaternion.identity, bm.transform);
-        float speedScale = Random.Range(0.99f, 1.02f);
-        float forceScale = Random.Range(0.99f, 1.02f);
-        float sizeScale  = Random.Range(0.99f, 1.02f);
+        bm.SampleRandomScales(false, out float speedScale, out float forceScale, out float sizeScale);
 
         b.SetRandomScales(speedScale, forceScale, sizeScale);
         b.SetGlobalScales(bm.globalSpeedMult, bm.globalForceMult);
