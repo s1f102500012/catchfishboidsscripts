@@ -283,9 +283,11 @@ public class BoidManager : MonoBehaviour
         // 生成新鱼（同色，阶数+1），并重新随机基础属性
         Boid nb = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
 
-        SampleRandomScales(a.isGolden, out float randSpeedScale, out float randForceScale, out float randSizeScale);
+        float combinedSpeedScale = CombineRandomScales(a.RandomSpeedScale, b.RandomSpeedScale);
+        float combinedForceScale = CombineRandomScales(a.RandomForceScale, b.RandomForceScale);
+        float combinedSizeScale  = CombineRandomScales(a.RandomSizeScale,  b.RandomSizeScale);
 
-        nb.SetRandomScales(randSpeedScale, randForceScale, randSizeScale);
+        nb.SetRandomScales(combinedSpeedScale, combinedForceScale, combinedSizeScale);
         nb.SetGlobalScales(globalSpeedMult, globalForceMult);
 
         if (a.isGolden)
@@ -306,6 +308,11 @@ public class BoidManager : MonoBehaviour
         ActiveBoids.Add(nb);
         DespawnBoid(a);
         DespawnBoid(b);
+    }
+
+    private static float CombineRandomScales(float first, float second)
+    {
+        return Mathf.Max(0f, first + second - 1f);
     }
 
     private void SampleRandomScales(bool forGolden, out float speed, out float force, out float size)
