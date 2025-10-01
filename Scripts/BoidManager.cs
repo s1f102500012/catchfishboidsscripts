@@ -16,6 +16,22 @@ public class BoidManager : MonoBehaviour
     public int goldenScoreValue = 5;
     public Color goldenColor = Color.yellow;
 
+    [Header("Spawn Randomization")]
+    [Tooltip("Random speed multiplier range for newly spawned fish (x-axis is used as minimum, y-axis as maximum).")]
+    public Vector2 speedRandomRange = new(0.99f, 1.02f);
+    [Tooltip("Random steering force multiplier range for newly spawned fish.")]
+    public Vector2 forceRandomRange = new(0.99f, 1.02f);
+    [Tooltip("Random local scale multiplier range for newly spawned fish.")]
+    public Vector2 sizeRandomRange = new(0.99f, 1.02f);
+
+    [Header("Extra Golden Randomization")]
+    [Tooltip("Random speed multiplier range when spawning extra golden fish from modifiers.")]
+    public Vector2 goldenSpeedRandomRange = new(0.98f, 1.03f);
+    [Tooltip("Random steering force multiplier range when spawning extra golden fish from modifiers.")]
+    public Vector2 goldenForceRandomRange = new(0.98f, 1.03f);
+    [Tooltip("Random local scale multiplier range when spawning extra golden fish from modifiers.")]
+    public Vector2 goldenSizeRandomRange = new(0.95f, 1.10f);
+
     [Header("Links")]
     [SerializeField] Transform player;
     public Transform Player { get => player; set => player = value; }
@@ -152,9 +168,7 @@ public class BoidManager : MonoBehaviour
             Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
             Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
 
-            float speedScale = Random.Range(0.99f, 1.02f);
-            float forceScale = Random.Range(0.99f, 1.02f);
-            float sizeScale  = Random.Range(0.99f, 1.02f);
+            SampleRandomScales(false, out float speedScale, out float forceScale, out float sizeScale);
 
             b.SetRandomScales(speedScale, forceScale, sizeScale);
             b.SetGlobalScales(globalSpeedMult, globalForceMult);
@@ -185,9 +199,7 @@ public class BoidManager : MonoBehaviour
             Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
 
             Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
-            float speedScale = Random.Range(0.98f, 1.03f);
-            float forceScale = Random.Range(0.98f, 1.03f);
-            float sizeScale  = Random.Range(0.95f, 1.10f);
+            SampleRandomScales(true, out float speedScale, out float forceScale, out float sizeScale);
 
             b.SetRandomScales(speedScale, forceScale, sizeScale);
             b.SetGlobalScales(globalSpeedMult, globalForceMult);
@@ -268,14 +280,12 @@ public class BoidManager : MonoBehaviour
         Vector2 vel = (rbA.velocity + rbB.velocity) * 0.5f;
     #endif
 
-       // 生成新鱼（同色，阶数+1），属性沿用原鱼
-       Boid nb = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
+        // 生成新鱼（同色，阶数+1），并重新随机基础属性
+        Boid nb = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
 
-        float avgSpeedScale = (a.RandomSpeedScale + b.RandomSpeedScale) * 0.5f;
-        float avgForceScale = (a.RandomForceScale + b.RandomForceScale) * 0.5f;
-        float avgSizeScale  = (a.RandomSizeScale  + b.RandomSizeScale)  * 0.5f;
+        SampleRandomScales(a.isGolden, out float randSpeedScale, out float randForceScale, out float randSizeScale);
 
-        nb.SetRandomScales(avgSpeedScale, avgForceScale, avgSizeScale);
+        nb.SetRandomScales(randSpeedScale, randForceScale, randSizeScale);
         nb.SetGlobalScales(globalSpeedMult, globalForceMult);
 
         if (a.isGolden)
@@ -296,6 +306,31 @@ public class BoidManager : MonoBehaviour
         ActiveBoids.Add(nb);
         DespawnBoid(a);
         DespawnBoid(b);
+    }
+
+    private void SampleRandomScales(bool forGolden, out float speed, out float force, out float size)
+    {
+        Vector2 speedRange = forGolden ? goldenSpeedRandomRange : speedRandomRange;
+        Vector2 forceRange = forGolden ? goldenForceRandomRange : forceRandomRange;
+        Vector2 sizeRange  = forGolden ? goldenSizeRandomRange  : sizeRandomRange;
+
+        speed = RandomInRange(speedRange);
+        force = RandomInRange(forceRange);
+        size  = RandomInRange(sizeRange);
+    }
+
+    private static float RandomInRange(Vector2 range)
+    {
+        float min = Mathf.Min(range.x, range.y);
+        float max = Mathf.Max(range.x, range.y);
+
+        min = Mathf.Max(0f, min);
+        max = Mathf.Max(0f, max);
+
+        if (Mathf.Approximately(min, max))
+            return min;
+
+        return Random.Range(min, max);
     }
 
 
