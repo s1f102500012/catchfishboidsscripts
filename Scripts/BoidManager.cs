@@ -185,9 +185,9 @@ public class BoidManager : MonoBehaviour
             Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
 
             Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
-            float speedScale = Random.Range(0.99f, 1.02f);
-            float forceScale = Random.Range(0.99f, 1.02f);
-            float sizeScale  = Random.Range(0.99f, 1.02f);
+            float speedScale = Random.Range(0.98f, 1.03f);
+            float forceScale = Random.Range(0.98f, 1.03f);
+            float sizeScale  = Random.Range(0.95f, 1.10f);
 
             b.SetRandomScales(speedScale, forceScale, sizeScale);
             b.SetGlobalScales(globalSpeedMult, globalForceMult);
