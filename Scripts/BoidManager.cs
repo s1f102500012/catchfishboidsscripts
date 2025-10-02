@@ -74,6 +74,9 @@ public class BoidManager : MonoBehaviour
     [Header("Golden Chance (runtime adds)")]
     [Range(0f,1f)] public float goldenChanceAddFromSpeed = 0f;   // 由道具①动态写入
 
+    [Header("Golden Wave Bonus")]
+    [Range(0f,1f)] public float fullGoldenWaveChance = 0f;
+
 
     void Awake()
     {
@@ -416,6 +419,12 @@ public class BoidManager : MonoBehaviour
         Vector2 flee = player ? ((Vector2)sp.position - (Vector2)player.position).normalized
                               : Vector2.up;
 
+        bool spawnFullGolden = false;
+        if (fullGoldenWaveChance > 0f)
+            spawnFullGolden = Random.value < Mathf.Clamp01(fullGoldenWaveChance);
+
+        float combinedGoldenChance = Mathf.Clamp01(goldenChance + goldenChanceAddFromSpeed);
+
         for (int i = 0; i < boidsPerWave; i++)
         {
             Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
@@ -428,8 +437,11 @@ public class BoidManager : MonoBehaviour
 
 
             // ① 若你已算好 goldenChanceAddFromSpeed（0~1）：
-            float p = Mathf.Clamp01(goldenChance + goldenChanceAddFromSpeed);
-            if (Random.value < p)
+            bool makeGolden = spawnFullGolden;
+            if (!makeGolden && combinedGoldenChance > 0f && Random.value < combinedGoldenChance)
+                makeGolden = true;
+
+            if (makeGolden)
                 b.ConfigureAsGolden(goldenSpeedMultiplier, goldenForceMultiplier, goldenScoreValue, goldenColor);
 
 
