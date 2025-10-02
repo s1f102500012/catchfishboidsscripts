@@ -53,6 +53,7 @@ public class GameManager : MonoBehaviour
     Vector3 basePlayerScale;
     int baseBoidsPerWave;
     float baseGoldenChance;
+    float baseFullGoldenWaveChance;
 
     // 放到你原来“unityroom Ranking”区
     public enum WriteMode { HighScoreDesc, HighScoreAsc, Always }
@@ -86,26 +87,29 @@ public class GameManager : MonoBehaviour
     
     /* ===== Crit Core ===== */
     [Header("Crit Core")]
-    [Range(0f,1f)] public float critFixedChance = 0f;
-    [Range(0f,1f)] public float critDynamicChance = 0f;
-    [Min(1f)]      public float critMultiplier   = 2f;
+    [Min(0f)] public float critFixedChance = 0f;
+    [Min(0f)] public float critDynamicChance = 0f;
+    [Min(1f)] public float critMultiplier   = 2f;
     // ★ 新增两个来源
-    [Range(0f,1f)] public float critBonusFromSpikes    = 0f;
-    [Range(0f,1f)] public float critBonusFromProgress  = 0f;
+    [Min(0f)] public float critBonusFromSpikes    = 0f;
+    [Min(0f)] public float critBonusFromProgress  = 0f;
 
     // ★ 修改总暴击率
     public float CritChance =>
-        Mathf.Clamp01(critFixedChance + critDynamicChance + critBonusFromSpikes + critBonusFromProgress);
+        Mathf.Max(0f, critFixedChance + critDynamicChance + critBonusFromSpikes + critBonusFromProgress);
+
+    static float critOverflowStep = 0f;
+    static float critOverflowBonusPerStep = 0f;
 
     // 供 Mods 调用
     public static void CritSetBonusFromSpikes(float v)
     {
-        if (Instance) Instance.critBonusFromSpikes = Mathf.Clamp01(v);
+        if (Instance) Instance.critBonusFromSpikes = Mathf.Max(0f, v);
     }
     public static void CritAddProgressBonus(float d)
     {
         if (Instance) Instance.critBonusFromProgress =
-            Mathf.Clamp01(Instance.critBonusFromProgress + Mathf.Max(0f, d));
+            Mathf.Max(0f, Instance.critBonusFromProgress + Mathf.Max(0f, d));
     }
     public static void CritResetProgressBonus()
     {
@@ -117,12 +121,26 @@ public class GameManager : MonoBehaviour
         if (Instance) Instance.critMultiplier = Mathf.Max(1f, Instance.critMultiplier + delta);
     }
 
+    public static void CritSetOverflowBonus(float overflowStep, float bonusPerStep)
+    {
+        if (overflowStep > 0f && bonusPerStep != 0f)
+        {
+            critOverflowStep = overflowStep;
+            critOverflowBonusPerStep = bonusPerStep;
+        }
+        else
+        {
+            critOverflowStep = 0f;
+            critOverflowBonusPerStep = 0f;
+        }
+    }
+
 
     // 暴击事件（供道具监听）
     public static event Action OnCrit;
 
     // 供 Mods 调用的接口
-    public static void CritAddFixedChance(float d) { if (Instance) Instance.critFixedChance  = Mathf.Clamp01(Instance.critFixedChance + Mathf.Max(0f,d)); }
+    public static void CritAddFixedChance(float d) { if (Instance) Instance.critFixedChance  = Mathf.Max(0f, Instance.critFixedChance + Mathf.Max(0f,d)); }
     public static void CritSetDynamicChance(float v){ if (Instance) Instance.critDynamicChance = Mathf.Max(0f,v); }
     public static void CritResetModel()
     {
@@ -132,6 +150,7 @@ public class GameManager : MonoBehaviour
         Instance.critMultiplier = 2f;
         Instance.critBonusFromSpikes = 0f;     // ★
         Instance.critBonusFromProgress = 0f;   // ★
+        CritSetOverflowBonus(0f, 0f);
     }
 
     [Header("Score Adders")]
@@ -293,6 +312,7 @@ public class GameManager : MonoBehaviour
         GoldBounceSplitGold.HardReset();
         SmallBounceSplitSmall.HardReset();
         CritToSmallsPerWave.HardReset();
+        CritOverflowBonusPer15.HardReset();
         ResetScoreAdders();
         SmallBaseScoreTo2.HardReset();
         SpikeWallsMinusOne.HardReset();
@@ -685,6 +705,7 @@ public class GameManager : MonoBehaviour
         {
             baseBoidsPerWave = bm.boidsPerWave;
             baseGoldenChance = bm.goldenChance;
+            baseFullGoldenWaveChance = bm.fullGoldenWaveChance;
         }
         baselineCaptured = true;
     }
@@ -702,6 +723,7 @@ public class GameManager : MonoBehaviour
         {
             bm.boidsPerWave = baseBoidsPerWave;
             bm.goldenChance = baseGoldenChance;
+            bm.fullGoldenWaveChance = baseFullGoldenWaveChance;
         }
 
         // 3) 恢复玩家数值与外观
@@ -779,9 +801,28 @@ public class GameManager : MonoBehaviour
 
         // ……下面保持你现有的暴击判定与加分（基于 effBase 计算额外分）……
         float chance = CritChance;
-        if (chance > 0f && UnityEngine.Random.value < chance)
+        float overflowBonus = 0f;
+        if (critOverflowStep > 0f && critOverflowBonusPerStep != 0f && chance > 1f)
         {
-            int extra = Mathf.RoundToInt(effBase * (critMultiplier - 1f));
+            float overflow = chance - 1f;
+            int steps = Mathf.FloorToInt(overflow / critOverflowStep);
+            if (steps > 0)
+                overflowBonus = steps * critOverflowBonusPerStep;
+        }
+
+        bool isCrit = false;
+        if (chance > 0f)
+        {
+            if (chance >= 1f)
+                isCrit = true;
+            else if (UnityEngine.Random.value < chance)
+                isCrit = true;
+        }
+
+        if (isCrit)
+        {
+            float effectiveMultiplier = critMultiplier + overflowBonus;
+            int extra = Mathf.RoundToInt(effBase * (effectiveMultiplier - 1f));
             if (extra > 0) AddScore(extra);
             OnCrit?.Invoke();
         }
