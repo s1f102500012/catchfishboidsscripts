@@ -263,10 +263,11 @@ public class GameManager : MonoBehaviour
     public void OnPlay()
     {
         NewRunReset();
+        currency = 0; totalEarned = 0; targetScore = firstTarget;
         EnterPlay();
         hasSuspended = false;    // 新开局不算“挂起”
         ResetRunUpgrades();
-        // —— 道具与商店 —— 
+        // —— 道具与商店 ——
         ShopManager.ResetPriceScaling();
         ShopManager.ResetRunBans();
         ShopManager.ResetRerollCost();
@@ -301,7 +302,6 @@ public class GameManager : MonoBehaviour
 
 
         if (bm) { bm.globalSpeedMult = 1f; bm.globalForceMult = 1f; }
-        currency = 0; totalEarned = 0; targetScore = firstTarget;
     }
     public void OnMainMenuContinue()
     {
