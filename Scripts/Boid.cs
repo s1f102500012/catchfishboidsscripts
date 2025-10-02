@@ -2,6 +2,29 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+public struct BoidSimulationSnapshot
+{
+    public bool IsValid;
+    public int Index;
+    public Vector2 Position;
+    public Vector2 Velocity;
+    public float MaxSpeed;
+    public float MaxForce;
+    public float PerceptionRadius;
+    public float PerceptionRadiusSqr;
+    public float SeparationRadius;
+    public float SeparationRadiusSqr;
+    public float DangerRadius;
+    public float DangerRadiusSqr;
+    public float WeightSeparation;
+    public float WeightCohesion;
+    public float WeightAlignment;
+    public float WeightFlee;
+    public float WallRepelRadius;
+    public float WallRepelWeight;
+    public float SpikeRepelWeight;
+}
+
 [RequireComponent(typeof(Rigidbody2D))]
 public class Boid : MonoBehaviour
 {
@@ -103,6 +126,55 @@ public class Boid : MonoBehaviour
 
         if (rb.linearVelocity.sqrMagnitude > 0.0001f)
             transform.up = rb.linearVelocity;
+
+        BounceWalls();
+    }
+
+    public BoidSimulationSnapshot CaptureSnapshot(int index)
+    {
+        BoidSimulationSnapshot snapshot = new()
+        {
+            IsValid = true,
+            Index = index,
+            Position = rb.position,
+#if UNITY_2023_1_OR_NEWER
+            Velocity = rb.linearVelocity,
+#else
+            Velocity = rb.velocity,
+#endif
+            MaxSpeed = maxSpeed,
+            MaxForce = maxForce,
+            PerceptionRadius = perceptionRadius,
+            PerceptionRadiusSqr = perceptionRadius * perceptionRadius,
+            SeparationRadius = separationRadius,
+            SeparationRadiusSqr = separationRadius * separationRadius,
+            DangerRadius = dangerRadius,
+            DangerRadiusSqr = dangerRadius * dangerRadius,
+            WeightSeparation = weightSeparation,
+            WeightCohesion = weightCohesion,
+            WeightAlignment = weightAlignment,
+            WeightFlee = weightFlee,
+            WallRepelRadius = wallRepelRadius,
+            WallRepelWeight = wallRepelWeight,
+            SpikeRepelWeight = spikeRepelWeight,
+        };
+        return snapshot;
+    }
+
+    public Vector2 SampleSpikeAvoidanceForce()
+    {
+        return SteerAvoidSpike();
+    }
+
+    public void ApplySimulationResult(Vector2 newVelocity)
+    {
+#if UNITY_2023_1_OR_NEWER
+        rb.linearVelocity = newVelocity;
+#else
+        rb.velocity = newVelocity;
+#endif
+        if (newVelocity.sqrMagnitude > 0.0001f)
+            transform.up = newVelocity;
 
         BounceWalls();
     }

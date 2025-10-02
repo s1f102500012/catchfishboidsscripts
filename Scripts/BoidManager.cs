@@ -1,6 +1,7 @@
 // BoidManager.cs — 08041955 + 修正无 Initialise()
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public class BoidManager : MonoBehaviour
@@ -85,15 +86,267 @@ public class BoidManager : MonoBehaviour
     void OnEnable() => GameManager.OnMatchBegin += HandleMatchBegin;
     void OnDisable() => GameManager.OnMatchBegin -= HandleMatchBegin;
 
-    void FixedUpdate()
+    [Header("Async Simulation")]
+    [Tooltip("Number of boids processed per asynchronous batch.")]
+    [Min(1)] public int asyncBatchSize = 32;
+
+    bool isProcessingBoids = false;
+
+    async void FixedUpdate()
     {
-        var snapshot = ActiveBoids.ToArray();        // ← 先拍快照
+        if (isProcessingBoids) return;
+        if (ActiveBoids.Count == 0) return;
+
+        var snapshot = ActiveBoids.ToArray();
+        bool hasValid = false;
         for (int i = 0; i < snapshot.Length; i++)
         {
-            var b = snapshot[i];
-            if (!b) continue;
-            b.Simulate();
+            if (snapshot[i]) { hasValid = true; break; }
         }
+        if (!hasValid) return;
+
+        isProcessingBoids = true;
+        try
+        {
+            await SimulateBoidsAsync(snapshot);
+        }
+        finally
+        {
+            isProcessingBoids = false;
+        }
+    }
+
+    async Task SimulateBoidsAsync(Boid[] boidSnapshot)
+    {
+        int length = boidSnapshot.Length;
+        var snapshots = new BoidSimulationSnapshot[length];
+        var spikeAvoidance = new Vector2[length];
+        var results = new Vector2[length];
+
+        bool anyValid = false;
+        for (int i = 0; i < length; i++)
+        {
+            var boid = boidSnapshot[i];
+            if (!boid) continue;
+            anyValid = true;
+
+            var snap = boid.CaptureSnapshot(i);
+            snapshots[i] = snap;
+            spikeAvoidance[i] = boid.SampleSpikeAvoidanceForce();
+            results[i] = snap.Velocity;
+        }
+
+        if (!anyValid)
+            return;
+
+        float dt = Time.fixedDeltaTime;
+        Vector2 spawnHalf = spawnArea;
+        Vector2? playerPos = player ? new Vector2(player.position.x, player.position.y) : null;
+
+        int batchSize = Mathf.Max(1, asyncBatchSize);
+        int batchCount = Mathf.CeilToInt((float)length / batchSize);
+
+        Task processingTask;
+        if (batchCount <= 1)
+        {
+            ProcessBoidBatch(0, length, snapshots, spikeAvoidance, spawnHalf, playerPos, dt, results);
+            processingTask = Task.CompletedTask;
+        }
+        else
+        {
+            var tasks = new List<Task>(batchCount);
+            for (int b = 0; b < batchCount; b++)
+            {
+                int start = b * batchSize;
+                int end = Mathf.Min(start + batchSize, length);
+                if (start >= end)
+                    break;
+
+                tasks.Add(Task.Run(() =>
+                    ProcessBoidBatch(start, end, snapshots, spikeAvoidance, spawnHalf, playerPos, dt, results)));
+            }
+
+            processingTask = Task.WhenAll(tasks);
+        }
+
+        await processingTask;
+
+        for (int i = 0; i < length; i++)
+        {
+            var boid = boidSnapshot[i];
+            if (!boid) continue;
+            boid.ApplySimulationResult(results[i]);
+        }
+    }
+
+    static void ProcessBoidBatch(int start, int end, BoidSimulationSnapshot[] snapshots, Vector2[] spikeAvoidance, Vector2 spawnHalf, Vector2? playerPos, float dt, Vector2[] results)
+    {
+        for (int i = start; i < end; i++)
+        {
+            ref readonly var boid = ref snapshots[i];
+            if (!boid.IsValid)
+                continue;
+
+            Vector2 accel = Vector2.zero;
+
+            accel += boid.WeightSeparation * ComputeSeparation(in boid, snapshots);
+            accel += boid.WeightCohesion * ComputeCohesion(in boid, snapshots);
+            accel += boid.WeightAlignment * ComputeAlignment(in boid, snapshots);
+            accel += boid.WeightFlee * ComputeFlee(in boid, playerPos);
+            accel += boid.SpikeRepelWeight * spikeAvoidance[i];
+            accel += boid.WallRepelWeight * ComputeWallAvoidance(in boid, spawnHalf);
+
+            Vector2 velocity = boid.Velocity + accel * dt;
+            results[i] = Vector2.ClampMagnitude(velocity, boid.MaxSpeed);
+        }
+    }
+
+    static Vector2 ComputeSeparation(in BoidSimulationSnapshot boid, BoidSimulationSnapshot[] snapshots)
+    {
+        if (boid.PerceptionRadius <= 0f || boid.SeparationRadius <= 0f)
+            return Vector2.zero;
+
+        Vector2 sum = Vector2.zero;
+        int count = 0;
+
+        for (int j = 0; j < snapshots.Length; j++)
+        {
+            if (j == boid.Index) continue;
+            ref readonly var other = ref snapshots[j];
+            if (!other.IsValid) continue;
+
+            Vector2 diff = boid.Position - other.Position;
+            float sqrMag = diff.sqrMagnitude;
+            if (sqrMag >= boid.PerceptionRadiusSqr || sqrMag <= 1e-6f) continue;
+            if (sqrMag >= boid.SeparationRadiusSqr) continue;
+
+            float invMag = 1f / Mathf.Sqrt(sqrMag);
+            sum += diff * invMag;
+            count++;
+        }
+
+        if (count == 0)
+            return Vector2.zero;
+
+        return SteerTowards(sum / count, in boid);
+    }
+
+    static Vector2 ComputeCohesion(in BoidSimulationSnapshot boid, BoidSimulationSnapshot[] snapshots)
+    {
+        if (boid.PerceptionRadius <= 0f)
+            return Vector2.zero;
+
+        Vector2 center = Vector2.zero;
+        int count = 0;
+
+        for (int j = 0; j < snapshots.Length; j++)
+        {
+            if (j == boid.Index) continue;
+            ref readonly var other = ref snapshots[j];
+            if (!other.IsValid) continue;
+
+            Vector2 diff = other.Position - boid.Position;
+            float sqrMag = diff.sqrMagnitude;
+            if (sqrMag >= boid.PerceptionRadiusSqr) continue;
+
+            center += other.Position;
+            count++;
+        }
+
+        if (count == 0)
+            return Vector2.zero;
+
+        float invCount = 1f / count;
+        return SteerTowards(center * invCount - boid.Position, in boid);
+    }
+
+    static Vector2 ComputeAlignment(in BoidSimulationSnapshot boid, BoidSimulationSnapshot[] snapshots)
+    {
+        if (boid.PerceptionRadius <= 0f)
+            return Vector2.zero;
+
+        Vector2 sum = Vector2.zero;
+        int count = 0;
+
+        for (int j = 0; j < snapshots.Length; j++)
+        {
+            if (j == boid.Index) continue;
+            ref readonly var other = ref snapshots[j];
+            if (!other.IsValid) continue;
+
+            Vector2 diff = other.Position - boid.Position;
+            if (diff.sqrMagnitude >= boid.PerceptionRadiusSqr) continue;
+
+            sum += other.Velocity;
+            count++;
+        }
+
+        if (count == 0)
+            return Vector2.zero;
+
+        float invCount = 1f / count;
+        return SteerTowards(sum * invCount, in boid);
+    }
+
+    static Vector2 ComputeFlee(in BoidSimulationSnapshot boid, Vector2? playerPos)
+    {
+        if (!playerPos.HasValue || boid.DangerRadius <= 0f)
+            return Vector2.zero;
+
+        Vector2 d = boid.Position - playerPos.Value;
+        if (d.sqrMagnitude >= boid.DangerRadiusSqr)
+            return Vector2.zero;
+
+        return SteerTowards(d, in boid);
+    }
+
+    static Vector2 ComputeWallAvoidance(in BoidSimulationSnapshot boid, Vector2 spawnHalf)
+    {
+        if (boid.WallRepelRadius <= 0f)
+            return Vector2.zero;
+
+        Vector2 steer = Vector2.zero;
+        Vector2 pos = boid.Position;
+        float r = boid.WallRepelRadius;
+
+        float dL = pos.x + spawnHalf.x;
+        if (dL < r)
+        {
+            float ratio = 1f - dL / r;
+            steer += Vector2.right * (ratio * ratio);
+        }
+
+        float dR = spawnHalf.x - pos.x;
+        if (dR < r)
+        {
+            float ratio = 1f - dR / r;
+            steer += Vector2.left * (ratio * ratio);
+        }
+
+        float dB = pos.y + spawnHalf.y;
+        if (dB < r)
+        {
+            float ratio = 1f - dB / r;
+            steer += Vector2.up * (ratio * ratio);
+        }
+
+        float dT = spawnHalf.y - pos.y;
+        if (dT < r)
+        {
+            float ratio = 1f - dT / r;
+            steer += Vector2.down * (ratio * ratio);
+        }
+
+        return SteerTowards(steer, in boid);
+    }
+
+    static Vector2 SteerTowards(Vector2 vec, in BoidSimulationSnapshot boid)
+    {
+        if (vec == Vector2.zero)
+            return Vector2.zero;
+
+        Vector2 desired = vec.normalized * boid.MaxSpeed;
+        return Vector2.ClampMagnitude(desired - boid.Velocity, boid.MaxForce);
     }
 
 
