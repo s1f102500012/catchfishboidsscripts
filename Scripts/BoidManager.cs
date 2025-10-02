@@ -150,6 +150,20 @@ public class BoidManager : MonoBehaviour
         int batchCount = Mathf.CeilToInt((float)length / batchSize);
 
         Task processingTask;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // WebGL 平台不支持多线程 Task.Run，直接在主线程同步处理所有批次。
+        for (int b = 0; b < batchCount; b++)
+        {
+            int start = b * batchSize;
+            int end = Mathf.Min(start + batchSize, length);
+            if (start >= end)
+                break;
+
+            ProcessBoidBatch(start, end, snapshots, spikeAvoidance, spawnHalf, playerPos, dt, results);
+        }
+        processingTask = Task.CompletedTask;
+#else
         if (batchCount <= 1)
         {
             ProcessBoidBatch(0, length, snapshots, spikeAvoidance, spawnHalf, playerPos, dt, results);
@@ -171,6 +185,7 @@ public class BoidManager : MonoBehaviour
 
             processingTask = Task.WhenAll(tasks);
         }
+#endif
 
         await processingTask;
 
