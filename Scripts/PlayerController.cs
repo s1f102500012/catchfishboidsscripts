@@ -27,11 +27,24 @@ public class PlayerController : MonoBehaviour
 
 
     // 提供给 ESC 面板显示
-    public float CurrentMaxSpeed => maxSpeed * (isSprintingEffective ? sprintSpeedMult : 1f);
-    public float CurrentAccelRate =>
-    accelRate * (isSprintingEffective
-        ? (ShiftNoAccelPenalty.Enabled ? 1f : sprintAccelMult)   // 装备道具时冲刺不降加速度
-        : 1f);
+    public float CurrentMaxSpeed
+    {
+        get
+        {
+            float sprintMult = isSprintingEffective ? sprintSpeedMult : 1f;
+            return maxSpeed * sprintMult * SpikeHitAccelSpeedBuff.CurrentSpeedMultiplier;
+        }
+    }
+    public float CurrentAccelRate
+    {
+        get
+        {
+            float sprintMult = isSprintingEffective
+                ? (ShiftNoAccelPenalty.Enabled ? 1f : sprintAccelMult)   // 装备道具时冲刺不降加速度
+                : 1f;
+            return accelRate * sprintMult * SpikeHitAccelSpeedBuff.CurrentAccelMultiplier;
+        }
+    }
 
 
     // ---------- runtime ----------

@@ -16,10 +16,18 @@ public class Spike : MonoBehaviour
             var gm = GameManager.Instance;
             if (gm != null)
             {
-                int cur  = gm.CurrentMoney;
-                int loss = Mathf.Max(1, Mathf.FloorToInt(cur * GameManager.Instance.spikePenaltyRate));
-                gm.LoseMoney(loss);
+                bool skipPenalty = SpikeHitNoPenaltyChance.TryPreventPenalty();
+                if (!skipPenalty)
+                {
+                    int cur  = gm.CurrentMoney;
+                    int loss = Mathf.Max(1, Mathf.FloorToInt(cur * GameManager.Instance.spikePenaltyRate));
+                    gm.LoseMoney(loss);
+                }
             }
+
+            SpikeHitAccelSpeedBuff.RegisterSpikeHit();
+            SpikeHitCritChanceBuff.RegisterSpikeHit();
+            SpikeHitGoldenChanceBuff.RegisterSpikeHit();
             return;
         }
 

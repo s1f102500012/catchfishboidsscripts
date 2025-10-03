@@ -96,7 +96,7 @@ public class GameManager : MonoBehaviour
 
     // ★ 修改总暴击率
     public float CritChance =>
-        Mathf.Max(0f, critFixedChance + critDynamicChance + critBonusFromSpikes + critBonusFromProgress);
+        Mathf.Max(0f, critFixedChance + critDynamicChance + critBonusFromSpikes + critBonusFromProgress + SpikeHitCritChanceBuff.CurrentBonus);
 
     static float critOverflowStep = 0f;
     static float critOverflowBonusPerStep = 0f;
@@ -319,7 +319,10 @@ public class GameManager : MonoBehaviour
         SpikeWallsPlusOneSpeed.HardReset();
         CritPerSpikeWall.HardReset();
         CritPlus5PerRound.HardReset();
-
+        SpikeHitNoPenaltyChance.HardReset();
+        SpikeHitAccelSpeedBuff.HardReset();
+        SpikeHitCritChanceBuff.HardReset();
+        SpikeHitGoldenChanceBuff.HardReset();
 
         if (bm) { bm.globalSpeedMult = 1f; bm.globalForceMult = 1f; }
     }
@@ -460,6 +463,10 @@ public class GameManager : MonoBehaviour
             SpikeWallsPlusOneSpeed.HardReset();
             CritPerSpikeWall.HardReset();
             CritPlus5PerRound.HardReset();
+            SpikeHitNoPenaltyChance.HardReset();
+            SpikeHitAccelSpeedBuff.HardReset();
+            SpikeHitCritChanceBuff.HardReset();
+            SpikeHitGoldenChanceBuff.HardReset();
 
 
             // 另外把 BoidManager 的全局乘子复原：
@@ -622,7 +629,7 @@ public class GameManager : MonoBehaviour
         var bm = FindFirstObjectByType<BoidManager>();
 
         // 金鱼概率（保持你原有写法，避免缺字段编译失败）
-        float goldChance = bm ? Mathf.Clamp01(bm.goldenChance + bm.goldenChanceAddFromSpeed) : 0f;
+        float goldChance = bm ? Mathf.Clamp01(bm.goldenChance + bm.goldenChanceAddFromSpeed + SpikeHitGoldenChanceBuff.CurrentBonus) : 0f;
 
         // 新：每波鱼群的鱼只数量（含额外金鱼，受所有道具与加成影响）
         int fishPerWave = bm ? bm.boidsPerWave + bm.extraGoldenPerWave : 0;
