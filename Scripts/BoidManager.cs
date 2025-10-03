@@ -438,7 +438,7 @@ public class BoidManager : MonoBehaviour
         if (fullGoldenWaveChance > 0f)
             spawnFullGolden = Random.value < Mathf.Clamp01(fullGoldenWaveChance);
 
-        float combinedGoldenChance = Mathf.Clamp01(goldenChance + goldenChanceAddFromSpeed);
+        float combinedGoldenChance = Mathf.Clamp01(goldenChance + goldenChanceAddFromSpeed + SpikeHitGoldenChanceBuff.CurrentBonus);
 
         for (int i = 0; i < boidsPerWave; i++)
         {
