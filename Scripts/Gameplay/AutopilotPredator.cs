@@ -19,6 +19,16 @@ public class AutopilotPredator : MonoBehaviour
     public float commitTime      = 0.7f;
     public float dirLerp         = 0.22f;
 
+    [Header("Target Biasing")]
+    public float fleeingParallelPenalty = 0.6f; // 追逐与自身平行且远离的鱼群时施加惩罚
+    public float closingBonus           = 0.8f; // 对朝向自身移动的鱼群加分
+    public float closingSpeedNorm       = 6f;   // 朝向奖励的速度归一化因子
+
+    [Header("Steering Responsiveness")]
+    public float dirSnapAngle    = 55f;   // 当期望方向急转时使用更大的插值
+    public float dirSnapLerp     = 0.65f; // 急转时的目标插值因子
+    public float commitBreakDist = 3.2f;  // 新目标与旧锁定差距过大时提前解锁
+
     [Header("Avoidance (normal)")]
     public float spikeAvoidRadius = 2.8f;
     public float spikeAvoidWeight = 2.2f;
@@ -90,9 +100,17 @@ public class AutopilotPredator : MonoBehaviour
         PredictBestCluster(bm, out aim, out count, out hasGold, out avgVel);
 
         float now = Time.time;
-        if (now < commitUntil && (committedAim - rb.position).sqrMagnitude <= (aim - rb.position).sqrMagnitude * 1.2f)
+        float commitDist2 = (aim - committedAim).sqrMagnitude;
+        if (now < commitUntil && commitDist2 <= commitBreakDist * commitBreakDist &&
+            (committedAim - rb.position).sqrMagnitude <= (aim - rb.position).sqrMagnitude * 1.25f)
+        {
             aim = committedAim;
-        else { committedAim = aim; commitUntil = now + commitTime; }
+        }
+        else
+        {
+            committedAim = aim;
+            commitUntil  = now + commitTime;
+        }
 
         Vector2 p = rb.position;
         Vector2 dir = (aim - p);
@@ -104,18 +122,47 @@ public class AutopilotPredator : MonoBehaviour
         if (rb.linearVelocity.sqrMagnitude > 0.01f) dir += rb.linearVelocity.normalized * 0.2f;
 
         dir = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector2.zero;
-        desiredDirSmoothed = Vector2.Lerp(desiredDirSmoothed, dir, dirLerp);
+
+        float lerpFactor = dirLerp;
+        if (desiredDirSmoothed.sqrMagnitude > 1e-6f && dir.sqrMagnitude > 1e-6f)
+        {
+            float angle = Vector2.Angle(desiredDirSmoothed, dir);
+            if (angle > dirSnapAngle)
+            {
+                float t = Mathf.InverseLerp(dirSnapAngle, 180f, angle);
+                lerpFactor = Mathf.Lerp(dirLerp, dirSnapLerp, t);
+            }
+        }
+        else
+        {
+            lerpFactor = dirSnapLerp;
+        }
+        desiredDirSmoothed = Vector2.Lerp(desiredDirSmoothed, dir, Mathf.Clamp01(lerpFactor));
         pc.externalMoveDir = desiredDirSmoothed;
 
-        // —— 冲刺策略（安全/远距/有钱/冷却） —— 
+        // —— 冲刺策略（安全/远距/有钱/冷却） ——
         float dist = (aim - p).magnitude;
         bool nearWall  = NearWall(p, bm.spawnArea, dashSafeWallMargin);
         bool pathClear = ConeClearOfSpikes(p, desiredDirSmoothed, dashConeHalfAngle, dashProbeRange);
         bool dense     = count >= Mathf.Max(minClusterCount, 6);
 
+        float align = (desiredDirSmoothed.sqrMagnitude > 1e-6f && dir.sqrMagnitude > 1e-6f)
+                        ? Vector2.Dot(desiredDirSmoothed, dir)
+                        : 0f;
+        bool aligned = align >= 0.4f;
+
+        bool clusterRetreat = false;
+        if (avgVel.sqrMagnitude > 1e-4f && (aim - p).sqrMagnitude > 1e-4f)
+        {
+            Vector2 toAim = (aim - p).normalized;
+            clusterRetreat = Vector2.Dot(avgVel.normalized, toAim) < -0.35f;
+        }
+
         bool wantDash = dense &&
-                        (dist > dashTriggerDist || (hasGold && dist > dashTriggerDist * 0.65f)) &&
-                        pathClear && !nearWall &&
+                        (dist > dashTriggerDist ||
+                         (hasGold && dist > dashTriggerDist * 0.6f) ||
+                         (clusterRetreat && dist > dashTriggerDist * 0.45f)) &&
+                        pathClear && !nearWall && aligned &&
                         gm.CurrentMoney >= dashMinMoney &&
                         Time.time >= nextDashTime;
 
@@ -211,6 +258,12 @@ public class AutopilotPredator : MonoBehaviour
         float bestScore = -1f; Vector2 bestPred = aim; int bestCnt = 0; bool bestGold = false; Vector2 bestV = Vector2.zero;
         Vector2 playerPos = rb.position;
         float playerSpd = pc ? pc.maxSpeed : 8f;
+#if UNITY_2023_1_OR_NEWER
+        Vector2 playerVel = rb.linearVelocity;
+#else
+        Vector2 playerVel = rb.velocity;
+#endif
+        float playerVelMag = playerVel.magnitude;
 
         for (int i = 0; i < n; i += step)
         {
@@ -254,6 +307,31 @@ public class AutopilotPredator : MonoBehaviour
             }
             float distW = 1f / (1f + dist * 0.25f);
             float total = score * distW * (1f + towards);
+
+            if (dist > 0.1f)
+            {
+                Vector2 toPlayer = (playerPos - centroid).normalized;
+                float relSpeed = Vector2.Dot(vAvg - playerVel, toPlayer);
+
+                float closing = Mathf.Max(0f, relSpeed);
+                if (closing > 0f)
+                {
+                    float norm = Mathf.Max(1f, closingSpeedNorm);
+                    total *= 1f + closingBonus * (closing / norm);
+                }
+                else
+                {
+                    float separating = -relSpeed;
+                    if (separating > 0f && playerVelMag > 0.05f && vAvg.sqrMagnitude > 1e-6f)
+                    {
+                        float parallel = Mathf.Max(0f, Vector2.Dot(playerVel.normalized, vAvg.normalized));
+                        if (parallel > 0f)
+                        {
+                            total /= 1f + fleeingParallelPenalty * parallel;
+                        }
+                    }
+                }
+            }
 
             if (c >= Mathf.Max(1, minClusterCount) && total > bestScore)
             {
