@@ -19,6 +19,11 @@ public class AutopilotPredator : MonoBehaviour
     public float commitTime      = 0.7f;
     public float dirLerp         = 0.22f;
 
+    [Header("Target Biasing")]
+    public float fleeingParallelPenalty = 0.6f; // 追逐与自身平行且远离的鱼群时施加惩罚
+    public float closingBonus           = 0.8f; // 对朝向自身移动的鱼群加分
+    public float closingSpeedNorm       = 6f;   // 朝向奖励的速度归一化因子
+
     [Header("Steering Responsiveness")]
     public float dirSnapAngle    = 55f;   // 当期望方向急转时使用更大的插值
     public float dirSnapLerp     = 0.65f; // 急转时的目标插值因子
@@ -253,6 +258,12 @@ public class AutopilotPredator : MonoBehaviour
         float bestScore = -1f; Vector2 bestPred = aim; int bestCnt = 0; bool bestGold = false; Vector2 bestV = Vector2.zero;
         Vector2 playerPos = rb.position;
         float playerSpd = pc ? pc.maxSpeed : 8f;
+#if UNITY_2023_1_OR_NEWER
+        Vector2 playerVel = rb.linearVelocity;
+#else
+        Vector2 playerVel = rb.velocity;
+#endif
+        float playerVelMag = playerVel.magnitude;
 
         for (int i = 0; i < n; i += step)
         {
@@ -296,6 +307,31 @@ public class AutopilotPredator : MonoBehaviour
             }
             float distW = 1f / (1f + dist * 0.25f);
             float total = score * distW * (1f + towards);
+
+            if (dist > 0.1f)
+            {
+                Vector2 toPlayer = (playerPos - centroid).normalized;
+                float relSpeed = Vector2.Dot(vAvg - playerVel, toPlayer);
+
+                float closing = Mathf.Max(0f, relSpeed);
+                if (closing > 0f)
+                {
+                    float norm = Mathf.Max(1f, closingSpeedNorm);
+                    total *= 1f + closingBonus * (closing / norm);
+                }
+                else
+                {
+                    float separating = -relSpeed;
+                    if (separating > 0f && playerVelMag > 0.05f && vAvg.sqrMagnitude > 1e-6f)
+                    {
+                        float parallel = Mathf.Max(0f, Vector2.Dot(playerVel.normalized, vAvg.normalized));
+                        if (parallel > 0f)
+                        {
+                            total /= 1f + fleeingParallelPenalty * parallel;
+                        }
+                    }
+                }
+            }
 
             if (c >= Mathf.Max(1, minClusterCount) && total > bestScore)
             {
