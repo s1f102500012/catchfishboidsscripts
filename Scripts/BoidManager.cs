@@ -431,8 +431,15 @@ public class BoidManager : MonoBehaviour
 
     void SpawnWaveAt(Transform sp)
     {
-        Vector2 flee = player ? ((Vector2)sp.position - (Vector2)player.position).normalized
-                              : Vector2.up;
+        if (!sp) return;
+        StartCoroutine(SpawnWaveRoutine(sp));
+    }
+
+    IEnumerator SpawnWaveRoutine(Transform sp)
+    {
+        Vector2 flee = player
+            ? ((Vector2)sp.position - (Vector2)player.position).normalized
+            : Vector2.up;
 
         bool spawnFullGolden = false;
         if (fullGoldenWaveChance > 0f)
@@ -440,59 +447,60 @@ public class BoidManager : MonoBehaviour
 
         float combinedGoldenChance = Mathf.Clamp01(goldenChance + goldenChanceAddFromSpeed + SpikeHitGoldenChanceBuff.CurrentBonus);
 
-        for (int i = 0; i < boidsPerWave; i++)
+        int regularCount = Mathf.Max(0, boidsPerWave);
+        int extraGoldenCount = Mathf.Max(0, extraGoldenPerWave);
+        int totalCount = regularCount + extraGoldenCount;
+        if (totalCount <= 0)
+            yield break;
+
+        float duration = totalCount > 1 ? 0.5f * Mathf.Log10(totalCount) : 0f;
+        float interval = (duration > 0f && totalCount > 0) ? duration / totalCount : 0f;
+        WaitForSeconds wait = interval > 0f ? new WaitForSeconds(interval) : null;
+
+        for (int i = 0; i < regularCount; i++)
         {
-            Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
-            Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
+            if (wait != null)
+                yield return wait;
 
-            SampleRandomScales(false, out float speedScale, out float forceScale, out float sizeScale);
-
-            b.SetRandomScales(speedScale, forceScale, sizeScale);
-            b.SetGlobalScales(globalSpeedMult, globalForceMult);
-
-
-            // ① 若你已算好 goldenChanceAddFromSpeed（0~1）：
-            bool makeGolden = spawnFullGolden;
-            if (!makeGolden && combinedGoldenChance > 0f && Random.value < combinedGoldenChance)
-                makeGolden = true;
-
-            if (makeGolden)
-                b.ConfigureAsGolden(goldenSpeedMultiplier, goldenForceMultiplier, goldenScoreValue, goldenColor);
-
-
-#if UNITY_2023_1_OR_NEWER
-            b.GetComponent<Rigidbody2D>().linearVelocity = flee * b.maxSpeed * 0.5f;
-#else
-            b.GetComponent<Rigidbody2D>().velocity       = flee * b.maxSpeed * 0.5f;
-#endif
-            ActiveBoids.Add(b);
+            SpawnSingleBoid(sp, flee, false, spawnFullGolden, combinedGoldenChance);
         }
 
-        // 额外金鱼（来自道具）
-        for (int g = 0; g < extraGoldenPerWave; g++)
+        for (int g = 0; g < extraGoldenCount; g++)
         {
-            // 与外层变量避名冲突：用 goldFleeDir
-            Vector2 goldFleeDir = player
-                ? ((Vector2)sp.position - (Vector2)player.position).normalized
-                : Vector2.up;
+            if (wait != null)
+                yield return wait;
 
-            Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
+            SpawnSingleBoid(sp, flee, true, false, 0f);
+        }
+    }
 
-            Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
-            SampleRandomScales(true, out float speedScale, out float forceScale, out float sizeScale);
+    void SpawnSingleBoid(Transform sp, Vector2 fleeDirection, bool forceGolden, bool spawnFullGolden, float combinedGoldenChance)
+    {
+        Vector2 pos = (Vector2)sp.position + Random.insideUnitCircle * scatterRadius;
+        Boid b = Instantiate(boidPrefab, pos, Quaternion.identity, transform);
 
-            b.SetRandomScales(speedScale, forceScale, sizeScale);
-            b.SetGlobalScales(globalSpeedMult, globalForceMult);
+        bool useGoldenRandom = forceGolden;
+        SampleRandomScales(useGoldenRandom, out float speedScale, out float forceScale, out float sizeScale);
+
+        b.SetRandomScales(speedScale, forceScale, sizeScale);
+        b.SetGlobalScales(globalSpeedMult, globalForceMult);
+
+        bool makeGolden = forceGolden || spawnFullGolden;
+        if (!makeGolden && combinedGoldenChance > 0f && Random.value < combinedGoldenChance)
+            makeGolden = true;
+
+        if (makeGolden)
             b.ConfigureAsGolden(goldenSpeedMultiplier, goldenForceMultiplier, goldenScoreValue, goldenColor);
+        else
+            b.isGolden = false;
 
 #if UNITY_2023_1_OR_NEWER
-            b.GetComponent<Rigidbody2D>().linearVelocity = goldFleeDir * b.maxSpeed * 0.5f;
+        b.GetComponent<Rigidbody2D>().linearVelocity = fleeDirection * b.maxSpeed * 0.5f;
 #else
-            b.GetComponent<Rigidbody2D>().velocity       = goldFleeDir * b.maxSpeed * 0.5f;
+        b.GetComponent<Rigidbody2D>().velocity       = fleeDirection * b.maxSpeed * 0.5f;
 #endif
 
-            ActiveBoids.Add(b);
-        }
+        ActiveBoids.Add(b);
     }
 
     public void DespawnBoid(Boid b)
