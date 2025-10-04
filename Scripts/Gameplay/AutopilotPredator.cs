@@ -105,7 +105,6 @@ public class AutopilotPredator : MonoBehaviour
 
         dir = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector2.zero;
         desiredDirSmoothed = Vector2.Lerp(desiredDirSmoothed, dir, dirLerp);
-
         pc.externalMoveDir = desiredDirSmoothed;
 
         // —— 冲刺策略（安全/远距/有钱/冷却） —— 
