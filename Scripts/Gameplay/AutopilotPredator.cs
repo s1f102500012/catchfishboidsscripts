@@ -18,6 +18,8 @@ public class AutopilotPredator : MonoBehaviour
     public float leadMax         = 0.9f;
     public float commitTime      = 0.7f;
     public float dirLerp         = 0.22f;
+    [Range(0f, 180f)] public float dirSnapAngle = 70f;
+    [Range(0f, 1f)]   public float dirSnapLerp  = 0.75f;
 
     [Header("Avoidance (normal)")]
     public float spikeAvoidRadius = 2.8f;
@@ -96,7 +98,8 @@ public class AutopilotPredator : MonoBehaviour
 
         Vector2 p = rb.position;
         Vector2 dir = (aim - p);
-        if (dir.sqrMagnitude > 1e-6f) dir.Normalize();
+        float distToAim = dir.magnitude;
+        if (distToAim > 1e-6f) dir /= distToAim;
 
         // 常规避刺 + 靠墙推回 + 动量对齐
         dir += ComputeSpikeRepulsion(p);
@@ -104,17 +107,58 @@ public class AutopilotPredator : MonoBehaviour
         if (rb.linearVelocity.sqrMagnitude > 0.01f) dir += rb.linearVelocity.normalized * 0.2f;
 
         dir = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector2.zero;
-        desiredDirSmoothed = Vector2.Lerp(desiredDirSmoothed, dir, dirLerp);
+
+        float lerpFactor = dirLerp;
+        if (desiredDirSmoothed.sqrMagnitude <= 1e-6f)
+        {
+            desiredDirSmoothed = dir;
+        }
+        else if (dir.sqrMagnitude > 1e-6f)
+        {
+            float ang = Vector2.Angle(desiredDirSmoothed, dir);
+            if (ang > dirSnapAngle)
+            {
+                float t = Mathf.InverseLerp(dirSnapAngle, 180f, ang);
+                lerpFactor = Mathf.Lerp(dirLerp, dirSnapLerp, t);
+            }
+
+            if (Vector2.Dot(desiredDirSmoothed, dir) < -0.25f)
+            {
+                desiredDirSmoothed = dir;
+            }
+            else
+            {
+                desiredDirSmoothed = Vector2.Lerp(desiredDirSmoothed, dir, Mathf.Clamp01(lerpFactor));
+            }
+        }
+
+        if (desiredDirSmoothed.sqrMagnitude < 1e-6f)
+            desiredDirSmoothed = dir;
+
         pc.externalMoveDir = desiredDirSmoothed;
 
         // —— 冲刺策略（安全/远距/有钱/冷却） —— 
-        float dist = (aim - p).magnitude;
+        float dist = distToAim;
         bool nearWall  = NearWall(p, bm.spawnArea, dashSafeWallMargin);
         bool pathClear = ConeClearOfSpikes(p, desiredDirSmoothed, dashConeHalfAngle, dashProbeRange);
-        bool dense     = count >= Mathf.Max(minClusterCount, 6);
+        bool dense     = count >= Mathf.Max(minClusterCount - 1, 5);
+
+        float closingSpeed = 0f;
+        if (dist > 0.1f && avgVel.sqrMagnitude > 1e-6f)
+        {
+            Vector2 toAim = dir;
+            closingSpeed = Vector2.Dot(avgVel, toAim);
+        }
+
+        float catchupNeed = Mathf.Clamp01((dist - dashTriggerDist * 0.6f) / Mathf.Max(0.01f, dashTriggerDist));
+        float escapeBoost = 0f;
+        if (pc && pc.maxSpeed > 0.01f)
+            escapeBoost = Mathf.Clamp01(Mathf.Max(0f, closingSpeed) / pc.maxSpeed);
 
         bool wantDash = dense &&
-                        (dist > dashTriggerDist || (hasGold && dist > dashTriggerDist * 0.65f)) &&
+                        (dist > dashTriggerDist ||
+                         (hasGold && dist > dashTriggerDist * 0.6f) ||
+                         (catchupNeed + escapeBoost) > 0.75f) &&
                         pathClear && !nearWall &&
                         gm.CurrentMoney >= dashMinMoney &&
                         Time.time >= nextDashTime;
